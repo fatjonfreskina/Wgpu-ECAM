@@ -1,4 +1,4 @@
-// Ce shader donne la couleur rouge à toutes les particules
+// This shader gives red color to all particles
 
 struct CameraUniform {
     view: mat4x4<f32>,
@@ -9,7 +9,7 @@ struct CameraUniform {
 var<uniform> matrices: CameraUniform;
 
 struct InstanceInput {
-    @location(5) position: vec3<f32>, // !!! changer vec de 4 à 3
+    @location(5) position: vec3<f32>,
     @location(6) veloctiy: vec3<f32>,
 };
 

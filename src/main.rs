@@ -1,14 +1,9 @@
-// TODO:
-// issue: https://github.com/gfx-rs/naga/issues/1490
-
-// STILL TO DO ----------------------------------------------------------------------------------------------------------------------------------
-
-// Ajouter l'atténuation des ressorts
-
-// BONUS : forces de frottement mdr jamais de la vie
-
-
-// IMPORTS --------------------------------------------------------------------------------------------------------------------------------------
+/* 
+TODOs:
+- issue: https://github.com/gfx-rs/naga/issues/1490
+- Add spring attenuation
+- BONUS: friction forces
+*/
 
 use cgmath::num_traits::pow;
 use wgpu_bootstrap::{
@@ -25,100 +20,93 @@ use wgpu_bootstrap::{
     wgpu,
 };
 
+/*
+    Constants
+*/
 
-// CONSTANTS ------------------------------------------------------------------------------------------------------------------------------------
-
-// how to increase number of instances : increase number of instances per row here AND increase workgroup size in compute.
-// Nombre de particules par ligne
+// To increase number of instances : increase NUM_INSTANCES_PER_ROW AND increase workgroup size in compute.
+// Particles per line
 const NUM_INSTANCES_PER_ROW: u32 = 31;
 
-// Ajustement de la position de départ des partcules pour les centrer et les remonter
+// Adjustment of the starting position of the partcules to center them and raise them
 const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(NUM_INSTANCES_PER_ROW as f32 - 1.0 , -35.0, NUM_INSTANCES_PER_ROW as f32 - 1.0);
-const DIST_INTERVAL: f32 = 2.0; // distance entre les particules
+const DIST_INTERVAL: f32 = 2.0; // distance between particules
 
-// Rayon et centre de la sphère
+// Sphere radius
 const RADIUS: f32 = 25.0; 
 const SPHERE_CENTER: cgmath::Vector3<f32> = cgmath::Vector3::new(0.0, 0.0, 0.0);
 
-// Masse des particules
+// Particles mass
 const PART_MASS: f32 = 1.0; 
 
-// longueur des ressorts
+// Length of the springs
 const STRUC_REST: f32 = DIST_INTERVAL;
 const SHEAR_REST: f32 = DIST_INTERVAL * 1.41421356237;
 const BEND_REST: f32 = DIST_INTERVAL * 2.0;
 
-// constante de raideur des ressorts
+// spring stiffness constant
 const STRUC_STIFF: f32 = 300.0;
 const SHEAR_STIFF: f32 = 10.0;
 const BEND_STIFF: f32 = 10.0;
 
-// constante d'atténuation des ressorts
+// TODO ..
+// spring damping constant
 // const STRUC_DAMP: f32 = 1.0;
 // const SHEAR_DAMP: f32 = 1.0;
 // const BEND_DAMP: f32 = 1.0;
 
 
-// STRUCTS --------------------------------------------------------------------------------------------------------------------------------------
+/* 
+    Structs
+*/
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct ComputeData {
-    delta_time: f32, // intervalle entre les calculs
-    nb_instances: u32, // nombre de particules
-    sphere_center_x: f32, // centre de la sphère (x)
-    sphere_center_y: f32, // centre de la sphère (y)
-    sphere_center_z: f32, // centre de la sphère (z)
-    radius: f32, // rayon de la sphère
-    part_mass: f32, // masse des particules
-    struc_rest: f32, // longueur des ressorts structurels
-    shear_rest: f32, // longueur des ressorts de cisaillement
-    bend_rest: f32, // longueur des ressorts de flexion
-    struc_stiff: f32, // constante de raideur des ressorts structurels
-    shear_stiff: f32, // constante de raideur des ressorts de cisaillement
-    bend_stiff: f32, // constante de raideur des ressorts de flexion
-    // struc_damp: f32, // constante d'atténuation des ressorts structurels
-    // shear_damp: f32, // constante d'atténuation des ressorts de cisaillement
-    // bend_damp: f32, // constante d'atténuation des ressorts de flexion
+    delta_time: f32,        // interval between calculations
+    nb_instances: u32,      // num particles
+    sphere_center_x: f32,   // sphere center (x)
+    sphere_center_y: f32,   // sphere center (y)
+    sphere_center_z: f32,   // sphere center (z)
+    radius: f32,            // radius sphere
+    part_mass: f32,         // mass particules
+    struc_rest: f32,        // length structural springs
+    shear_rest: f32,        // length shear springs
+    bend_rest: f32,         // length bending springs
+    struc_stiff: f32,       // stiffness constant structural springs
+    shear_stiff: f32,       // stiffness constant shear springs
+    bend_stiff: f32,        // stiffness constant bending springs
+    // struc_damp: f32,     // damping constant structural springs
+    // shear_damp: f32,     // attenuation constant shear springs
+    // bend_damp: f32,      // attenuation constant shear springs
 }
 
 struct Net {
     // diffuse_bind_group: wgpu::BindGroup,
     camera_bind_group: wgpu::BindGroup,
     particle_pipeline: wgpu::RenderPipeline,
-    sphere_pipeline: wgpu::RenderPipeline, // line -> sphere
-    compute_pipeline: wgpu::ComputePipeline, // added!
+    sphere_pipeline: wgpu::RenderPipeline,      // line -> sphere
+    compute_pipeline: wgpu::ComputePipeline,    // added!
     compute_springs_pipeline: wgpu::ComputePipeline,
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
-    sphere_vertex_buffer: wgpu::Buffer, // sphere
-    sphere_index_buffer: wgpu::Buffer, // sphere
+    sphere_vertex_buffer: wgpu::Buffer,         // sphere
+    sphere_index_buffer: wgpu::Buffer,          // sphere
     particles: Vec<Particle>,
     particle_buffer: wgpu::Buffer,
     compute_particles_bind_group: wgpu::BindGroup, // added!
     compute_springs_bind_group: wgpu::BindGroup,
-    compute_data_buffer: wgpu::Buffer, // added!
-    compute_data_bind_group: wgpu::BindGroup, // added!
+    compute_data_buffer: wgpu::Buffer,          // added!
+    compute_data_bind_group: wgpu::BindGroup,   // added!
     indices: Vec<u16>,
-    sphere_indices: Vec<u16>, // added for sphere
+    sphere_indices: Vec<u16>,                   // added for sphere
 }
-
-
-// INFO --------------------------------------------------------------------------------------------------------------------------------------
-
-// On crée un pipeline, qui prend des données dans un buffer.
-// Les bindgroups sont des groupes de données qui sont liées à un pipeline et indiquent à ce pipeline où aller chercher les données.
-
-
-
-
 
 impl Net {
     fn new(context: &Context) -> Self {
-        
-
-        // CAMERA ----------------------------------------------------------------------------------------------------------------------------
-
+        /*
+            Camera
+        */
         let camera = Camera {
             eye: (20.0, 40.0, 100.0).into(),
             target: (0.0, 0.0, 0.0).into(),
@@ -128,13 +116,13 @@ impl Net {
             znear: 0.1,
             zfar: 1200.0,
         };
-
         let (_camera_buffer, camera_bind_group) = camera.create_camera_bind_group(context);
-    
 
-        // PARTICULES ------------------------------------------------------------------------------------------------------------------------
-        
-        // création du pipeline (1) pour afficher les particules
+        /*
+            Particles
+        */
+
+        // Creation of the pipeline (1) to display the particles
         let particle_pipeline = context.create_render_pipeline(
             "Particle pipeline",
             include_str!("red.wgsl"),
@@ -145,17 +133,17 @@ impl Net {
             wgpu::PrimitiveTopology::TriangleList
         );
 
-        // génération des "balles" qui réprésentent les particules
+        // generation of the "balls" which represent the particles
         let (vertices, indices) = icosphere(1);
-        // buffer pour les balles (un pour les vertex et un pour les indices)
+        // Buffers for the balls 
         let vertex_buffer = context.create_buffer(vertices.as_slice(), wgpu::BufferUsages::VERTEX);
         let index_buffer = context.create_buffer(indices.as_slice(), wgpu::BufferUsages::INDEX);
 
-        // création des particules elles-mêmes
+        // Creation of the particles
         let particles = (0..NUM_INSTANCES_PER_ROW*NUM_INSTANCES_PER_ROW).map(|index| {
             let x = index % NUM_INSTANCES_PER_ROW;
             let z = index / NUM_INSTANCES_PER_ROW;
-            // note : on multiplie par DIST_INTERVAL pour que les particules soient espacées de la distance spécifiée en haut
+            // note: we multiply by DIST_INTERVAL so that the particles are spaced by the distance specified at the top
             let position = cgmath::Vector3 { x: x as f32*DIST_INTERVAL, y: 0.0, z: z as f32*DIST_INTERVAL } - INSTANCE_DISPLACEMENT;
 
             Particle {
@@ -163,13 +151,14 @@ impl Net {
                 velocity: [0.0, 0.0, 0.0],
             }
         }).collect::<Vec<_>>();
-        // buffer pour les particules
+        // buffer for particules
         let particle_buffer = context.create_buffer(particles.as_slice(), wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::STORAGE);
         
-
-        // SPHERE ----------------------------------------------------------------------------------------------------------------------------
-
-        // création du pipeline (2) pour afficher la sphere
+        /*
+            Sphere
+        */
+        
+        // creation of the pipeline (2) to display the sphere
         let sphere_pipeline = context.create_render_pipeline( // définit le pipeline pour le sphere
             "Sphere Pipeline",
             include_str!("blue.wgsl"),
@@ -180,27 +169,28 @@ impl Net {
             wgpu::PrimitiveTopology::LineList,
         );
     
-        // création de la sphere
+        // Cretion of the sphere
         let (mut sphere_vertices, sphere_indices) = icosphere(4);
         
-        // agrandir la sphere :
+        // enlarge the sphere
         for vertex in sphere_vertices.iter_mut() {
             let mut posn = cgmath::Vector3::from(vertex.position);
             posn *= RADIUS;
             vertex.position = posn.into()
         }
         
-        // buffers pour la sphere (un pour les vertex et un pour les indices)
+        // Buffers
         let sphere_vertex_buffer = context.create_buffer(&sphere_vertices, wgpu::BufferUsages::VERTEX);
         let sphere_index_buffer = context.create_buffer(&sphere_indices, wgpu::BufferUsages::INDEX);
 
-
-        // COMPUTE ---------------------------------------------------------------------------------------------------------------------------
-
-        // création du pipeline (3) pour calculer le déplacement des particules
+        /*
+            Computation
+        */
+        
+        // Creation of the pipeline (3) to calculate the displacement of the particles
         let compute_pipeline = context.create_compute_pipeline("Compute Pipeline", include_str!("compute.wgsl"));
 
-        // Bind group pour le calcul des particules (utilise le buffer de particules)
+        // Bind group for particle calculation (uses particle buffer)
         let compute_particles_bind_group = context.create_bind_group(
             "Compute particles bind group", 
             &compute_pipeline.get_bind_group_layout(0),
@@ -212,7 +202,7 @@ impl Net {
             ]
         );
 
-        // définit compute data (paramètres restent fixes à priori)
+        // defines compute data (parameters remain fixed)
         let compute_data = ComputeData {
             delta_time: 0.016,
             nb_instances: pow(NUM_INSTANCES_PER_ROW,2),
@@ -232,10 +222,10 @@ impl Net {
             // bend_damp: f32,
         };
 
-        // buffer pour compute data
+        // buffer compute data
         let compute_data_buffer = context.create_buffer(&[compute_data], wgpu::BufferUsages::UNIFORM);
 
-        // Bind group pour compute data
+        // Bind group compute data
         let compute_data_bind_group = context.create_bind_group(
             "Compute data bind group", 
             &compute_pipeline.get_bind_group_layout(1), 
@@ -248,8 +238,9 @@ impl Net {
         );
 
 
-        // RESSORTS --------------------------------------------------------------------------------------------------------------------------
-
+        /*
+            Spring
+        */
         // pipeline (4) pour calculer les ressorts structurels
         let compute_springs_pipeline = context.create_compute_pipeline(
             "spring compute pipeline", 
@@ -366,10 +357,6 @@ impl Net {
     }
 }
 
-
-
-
-
 impl Application for Net {
     fn render(&self, context: &Context) -> Result<(), wgpu::SurfaceError> {
         let mut frame = Frame::new(context)?;
@@ -444,9 +431,6 @@ impl Application for Net {
         computation.submit();
 
     }
-
-    
-
 }
 
 fn main() {

@@ -1,6 +1,6 @@
-// Ce shader calcule toutes les forces des ressorts et les applique aux particules
+// This shader calculates all the forces of the springs and applies them to the particles
 
-struct Particle { // Attributs sont donnés individuellement à cause d'un problème d'alignement de mémoire (mais on peut les recomposer plus loin)
+struct Particle { 
     pos_x: f32,
     pos_y: f32,
     pos_z: f32,
@@ -9,8 +9,7 @@ struct Particle { // Attributs sont donnés individuellement à cause d'un probl
     velocity_z: f32,
 }
 
-struct ComputationData { // idem que dans le code rust
-    // ajouter workgroup size ici dedans ?
+struct ComputationData { 
     delta_time: f32,
     nb_instances: u32,
     sphere_center_x: f32,
@@ -34,7 +33,6 @@ struct ComputationData { // idem que dans le code rust
 @group(2) @binding(0) var<storage> structural: array<vec2<i32>>;
 @group(2) @binding(1) var<storage> shear: array<vec2<i32>>;
 @group(2) @binding(2) var<storage> bend: array<vec2<i32>>;
-// Idem pour workgroup
 // Increase size of workgroup to have more particles
 @compute @workgroup_size(64, 1, 1) 
 fn main(@builtin(global_invocation_id) param: vec3<u32>) {
@@ -42,24 +40,26 @@ fn main(@builtin(global_invocation_id) param: vec3<u32>) {
           return;
     }
     var sum_of_forces = vec3<f32>(0.0, 0.0, 0.0);
-    // RESSORTS STRUCTURAUX ------------------------------------------------------------------------------------------------------------------
-    // On sait que chaque particule a quatre liens structuraux (dont certains ne sont pas valides; voir plus bas)
-    for (var i = 0u; i < 4u; i += 1u) {
-        // récupérer les index
-        var index1 = structural[param.x * 4u + i][0]; // param.x*4 permet de ne pas devoir itérer dans toute la liste
+    /* 
+        STRUCTURAL SPRINGS
+    */
+
+        // We know that each particle has four structural links (some of which are invalid; see below)    for (var i = 0u; i < 4u; i += 1u) {
+        // Get the index
+        var index1 = structural[param.x * 4u + i][0]; // param.x*4 allows not to iterate through the whole list
         var index2 = structural[param.x * 4u + i][1];
-        // si le 2e index est plus grand que le nombre de particules, on ne tient pas compte du couple de points (on est en dehors du filet)
+        // if the 2nd index is greater than the number of particles, the pair of points is not taken into account (we are outside the net)
         if (u32(index2) <= data.nb_instances) {
             var part1 = particlesData[index1];
             var part2 = particlesData[index2];
-            // trouver la position de ces particules
+            // Find pos of particles
             var posn1 = vec3<f32>(part1.pos_x, part1.pos_y, part1.pos_z);
             var posn2 = vec3<f32>(part2.pos_x, part2.pos_y, part2.pos_z);
-            // distance entre les deux particules
+            // Distance between particles
             var part_dist = length(posn1 - posn2);
-            // directions de la force ( de l'une vers l'autre, le calcul dans l'autre sens se fera quand on traitera l'autre particule)
+            // directions of the force (from one to the other, the calculation in the other direction will be done when we treat the other particle)
             var dir = normalize(posn1 - posn2);
-            // force du ressort (deltadistance*k*direction)
+            // spring force (deltadistance*k*direction)
             var struc_force = -dir * (part_dist - data.struc_rest) * data.struc_stiff;
             sum_of_forces += struc_force;
         }

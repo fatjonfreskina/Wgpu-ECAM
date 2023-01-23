@@ -103,5 +103,4 @@ The address_mode_* parameters determine what to do if the sampler gets a texture
 
 ## The BindGroup
 
-A BindGroup describes a set of resources and how they can be accessed by a shader.
-
+Bindgroups describes a set of resources that are linked to a pipeline and tell the pipeline where to fetch the data.

@@ -1,4 +1,4 @@
-// Ce shader donne sa couleur bleue à la sphère
+// This shader gives blue color to all particles
 
 struct CameraUniform {
     view: mat4x4<f32>,
