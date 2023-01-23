@@ -41,7 +41,7 @@ fn main(@builtin(global_invocation_id) param: vec3<u32>) {
     }
     var sum_of_forces = vec3<f32>(0.0, 0.0, 0.0);
     /* 
-        STRUCTURAL SPRINGS
+        Structural Springs
     */
 
         // We know that each particle has four structural links (some of which are invalid; see below)    for (var i = 0u; i < 4u; i += 1u) {
@@ -64,7 +64,9 @@ fn main(@builtin(global_invocation_id) param: vec3<u32>) {
             sum_of_forces += struc_force;
         }
     }
-    // RESSORTS DE CISAILLEMENT --------------------------------------------------------------------------------------------------------------
+    /*
+        Shear springs
+    */
     for (var i = 0u; i < 4u; i += 1u) {
         var index1 = shear[param.x * 4u + i][0];
         var index2 = shear[param.x * 4u + i][1];
@@ -79,7 +81,9 @@ fn main(@builtin(global_invocation_id) param: vec3<u32>) {
             sum_of_forces += shear_force;
         }
     }
-    // RESSORTS DE FLEXION -------------------------------------------------------------------------------------------------------------------
+    /* 
+        Bend springs
+    */
     for (var i = 0u; i < 4u; i += 1u) {
         var index1 = bend[param.x * 4u + i][0];
         var index2 = bend[param.x * 4u + i][1];
@@ -94,11 +98,13 @@ fn main(@builtin(global_invocation_id) param: vec3<u32>) {
             sum_of_forces += bend_force;
         }
     }
-    // GRAVITÉ --------------------------------------------------------------------------------------------------------------------------------
+    /*
+        Gravity
+    */
     var gravity = vec3<f32>(0.0, -9.81*data.part_mass, 0.0);
     sum_of_forces += gravity;
 
-    // MISE À JOUR DE LA POSITION DE LA PARTICULE ----------------------------------------------------------------------------------------------
+    // Update position particles
     // v = (F*deltatime)/m
     particlesData[param.x].velocity_x += ((sum_of_forces.x * data.delta_time) / data.part_mass);
     particlesData[param.x].velocity_y += ((sum_of_forces.y * data.delta_time) / data.part_mass);

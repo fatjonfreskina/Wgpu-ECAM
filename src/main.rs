@@ -3,6 +3,7 @@ TODOs:
 - issue: https://github.com/gfx-rs/naga/issues/1490
 - Add spring attenuation
 - BONUS: friction forces
+- refactoring
 */
 
 use cgmath::num_traits::pow;
@@ -24,7 +25,7 @@ use wgpu_bootstrap::{
     Constants
 */
 
-// To increase number of instances : increase NUM_INSTANCES_PER_ROW AND increase workgroup size in compute.
+// To increase number of instances : increase NUM_INSTANCES_PER_ROW AND increase workgroup size in compute shader.
 // Particles per line
 const NUM_INSTANCES_PER_ROW: u32 = 31;
 
@@ -49,7 +50,7 @@ const STRUC_STIFF: f32 = 300.0;
 const SHEAR_STIFF: f32 = 10.0;
 const BEND_STIFF: f32 = 10.0;
 
-// TODO ..
+// TODO
 // spring damping constant
 // const STRUC_DAMP: f32 = 1.0;
 // const SHEAR_DAMP: f32 = 1.0;
@@ -133,7 +134,7 @@ impl Net {
             wgpu::PrimitiveTopology::TriangleList
         );
 
-        // generation of the "balls" which represent the particles
+        // Generation of the "balls" which represent the particles
         let (vertices, indices) = icosphere(1);
         // Buffers for the balls 
         let vertex_buffer = context.create_buffer(vertices.as_slice(), wgpu::BufferUsages::VERTEX);
@@ -241,12 +242,12 @@ impl Net {
         /*
             Spring
         */
-        // pipeline (4) pour calculer les ressorts structurels
+        // pipeline (4) to calculate structural springs
         let compute_springs_pipeline = context.create_compute_pipeline(
             "spring compute pipeline", 
             include_str!("springs.wgsl"));
 
-        // listes des ressorts
+        // spring lists
         let mut structural = Vec::new();
         let mut shear = Vec::new();
         let mut bend = Vec::new();
@@ -269,7 +270,7 @@ impl Net {
                     structural.push([index, pow(NUM_INSTANCES_PER_ROW, 2) as i32 + 1]);
                 }
             }
-            // shear srings
+            // shear springs
             for offset1 in [-1,1] {
                 for offset2 in [-1,1] {
                     if col as i32 + offset1 >= 0 && col as i32 + offset1 < NUM_INSTANCES_PER_ROW as i32 && row as i32 + offset2 >= 0 && row as i32 + offset2 < NUM_INSTANCES_PER_ROW as i32 {
@@ -296,25 +297,12 @@ impl Net {
             }
         }
 
-        // Imprime les ressorts structurels (pour vérifier)
-        // for elem in structural.iter_mut() {
-        //     println!("{:?}", elem)
-        // }
-        // Imprime les ressorts de cisaillement (pour vérifier)
-        // for elem in shear.iter_mut() {
-        //     println!("{:?}", elem)
-        // }
-        // Impression des ressorts de flexion (pour vérifier)
-        // for elem in bend.iter_mut() {
-        //     println!("{:?}", elem)
-        // }
-
-        // buffer pour les ressorts structurels
+        // buffer for structural springs
         let structural_index_buffer = context.create_buffer(structural.as_slice(), wgpu::BufferUsages::STORAGE);
         let shear_index_buffer = context.create_buffer(shear.as_slice(), wgpu::BufferUsages::STORAGE);
         let bend_index_buffer = context.create_buffer(bend.as_slice(), wgpu::BufferUsages::STORAGE);
 
-        // Bind group pour les ressorts
+        // Bind group springs
         let compute_springs_bind_group = context.create_bind_group(
             "Compute Springs Bind Group!", 
             &compute_pipeline.get_bind_group_layout(2),
@@ -364,7 +352,7 @@ impl Application for Net {
         {
             let mut render_pass = frame.begin_render_pass(wgpu::Color {r: 0.85, g: 0.85, b: 0.85, a: 1.0});
             
-            // afficher les particules
+            // show particles
             render_pass.set_pipeline(&self.particle_pipeline); // pipeline (1)
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..)); // vertex buffer (pour les icosphères)
@@ -372,7 +360,7 @@ impl Application for Net {
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
             render_pass.draw_indexed(0..(self.indices.len() as u32), 0, 0..self.particles.len() as _);
             
-            // render la sphere
+            // show sphere
             render_pass.set_pipeline(&self.sphere_pipeline); // pipeline (2)
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.sphere_vertex_buffer.slice(..));
@@ -386,9 +374,8 @@ impl Application for Net {
     }
     
     fn update(&mut self, context: &Context, delta_time: f32) {
-        // WHY COMPUTE_DATA ICI AUSSI ?
         let compute_data = ComputeData {
-            delta_time: 0.016, // delta_time, on peut ne pas mettre : 0.016 si on veut utiliser le clock de l'ordi! (ce que je peux faire)
+            delta_time: 0.016,
             nb_instances: pow(NUM_INSTANCES_PER_ROW,2),
             sphere_center_x: SPHERE_CENTER.x,
             sphere_center_y: SPHERE_CENTER.y,
@@ -407,20 +394,20 @@ impl Application for Net {
         };
         context.update_buffer(&self.compute_data_buffer, &[compute_data]);
 
-        //MISE A JOUR VIA LE COMPUTE SHADER
+        // Update via the compute shader
         let mut computation = Computation::new(context);
 
         {
             let mut compute_pass = computation.begin_compute_pass();
 
-            // Calcul des forces de ressorts
+            // Calculation of spring forces
             compute_pass.set_pipeline(&self.compute_springs_pipeline); // pipeline (3)
             compute_pass.set_bind_group(0, &self.compute_particles_bind_group, &[]);
             compute_pass.set_bind_group(1, &self.compute_data_bind_group, &[]);
             compute_pass.set_bind_group(2, &self.compute_springs_bind_group, &[]);
             compute_pass.dispatch_workgroups((pow(NUM_INSTANCES_PER_ROW,2) as f64/64.0).ceil() as u32, 1, 1);
             
-            // Calcul des nouvelles positions
+            // Calculation of new positions
             compute_pass.set_pipeline(&self.compute_pipeline); // pipeline (4)
             compute_pass.set_bind_group(0, &self.compute_particles_bind_group, &[]);
             compute_pass.set_bind_group(1, &self.compute_data_bind_group, &[]);
