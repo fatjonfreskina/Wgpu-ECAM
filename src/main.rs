@@ -2,7 +2,7 @@
 TODOs:
 - issue: https://github.com/gfx-rs/naga/issues/1490
 - Add spring attenuation
-- BONUS: friction forces
+- friction forces
 - refactoring
 */
 
@@ -66,11 +66,11 @@ const BEND_STIFF: f32 = 10.0;
 struct ComputeData {
     delta_time: f32,        // interval between calculations
     nb_instances: u32,      // num particles
-    sphere_center_x: f32,   // sphere center (x)
-    sphere_center_y: f32,   // sphere center (y)
-    sphere_center_z: f32,   // sphere center (z)
-    radius: f32,            // radius sphere
-    part_mass: f32,         // mass particules
+    sphere_center_x: f32,   
+    sphere_center_y: f32,   
+    sphere_center_z: f32,   
+    radius: f32,            
+    part_mass: f32,         
     struc_rest: f32,        // length structural springs
     shear_rest: f32,        // length shear springs
     bend_rest: f32,         // length bending springs
@@ -120,10 +120,9 @@ impl Net {
         let (_camera_buffer, camera_bind_group) = camera.create_camera_bind_group(context);
 
         /*
-            Particles
+            Particles pipeline (create)
         */
 
-        // Creation of the pipeline (1) to display the particles
         let particle_pipeline = context.create_render_pipeline(
             "Particle pipeline",
             include_str!("red.wgsl"),
@@ -131,7 +130,7 @@ impl Net {
             &[
                 &context.camera_bind_group_layout,
             ],
-            wgpu::PrimitiveTopology::TriangleList
+            wgpu::PrimitiveTopology::TriangleList // every three vertices will correspond to one triangle.
         );
 
         // Generation of the "balls" which represent the particles
@@ -156,10 +155,9 @@ impl Net {
         let particle_buffer = context.create_buffer(particles.as_slice(), wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::STORAGE);
         
         /*
-            Sphere
+            Sphere pipeline
         */
         
-        // creation of the pipeline (2) to display the sphere
         let sphere_pipeline = context.create_render_pipeline( // définit le pipeline pour le sphere
             "Sphere Pipeline",
             include_str!("blue.wgsl"),
@@ -185,10 +183,9 @@ impl Net {
         let sphere_index_buffer = context.create_buffer(&sphere_indices, wgpu::BufferUsages::INDEX);
 
         /*
-            Computation
+            Compute pipeline: calculate displacement of the particles
         */
         
-        // Creation of the pipeline (3) to calculate the displacement of the particles
         let compute_pipeline = context.create_compute_pipeline("Compute Pipeline", include_str!("compute.wgsl"));
 
         // Bind group for particle calculation (uses particle buffer)
@@ -240,9 +237,8 @@ impl Net {
 
 
         /*
-            Spring
+            Springs Pipeline
         */
-        // pipeline (4) to calculate structural springs
         let compute_springs_pipeline = context.create_compute_pipeline(
             "spring compute pipeline", 
             include_str!("springs.wgsl"));
@@ -345,7 +341,11 @@ impl Net {
     }
 }
 
+// impl .. for syntax:
+// adds previously defined methods (from the trait) to the type
+// implements the trait Application for the struct Net
 impl Application for Net {
+    // inside render you USE the pipeline
     fn render(&self, context: &Context) -> Result<(), wgpu::SurfaceError> {
         let mut frame = Frame::new(context)?;
 
@@ -355,8 +355,8 @@ impl Application for Net {
             // show particles
             render_pass.set_pipeline(&self.particle_pipeline); // pipeline (1)
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..)); // vertex buffer (pour les icosphères)
-            render_pass.set_vertex_buffer(1, self.particle_buffer.slice(..)); // vertex buffer (pour les particules)
+            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..)); // vertex buffer (icospheres)
+            render_pass.set_vertex_buffer(1, self.particle_buffer.slice(..)); // vertex buffer (particules)
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
             render_pass.draw_indexed(0..(self.indices.len() as u32), 0, 0..self.particles.len() as _);
             
@@ -422,10 +422,7 @@ impl Application for Net {
 
 fn main() {
     let window = Window::new();
-
     let context = window.get_context();
-
     let my_app = Net::new(context);
-
     window.run(my_app);
 }

@@ -18,6 +18,8 @@ struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
 }
 
+// @builtin takes into account the aspect ratio of your monitor
+
 // Vertex shader
 
 @vertex
@@ -35,3 +37,6 @@ fn vs_main(
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     return vec4(0.0, 0.0, 1.0, 1.0);
 }
+
+// The @location(0) bit tells WGPU to store the vec4 value returned by 
+// this function in the first color target. We'll get into what this is later.
