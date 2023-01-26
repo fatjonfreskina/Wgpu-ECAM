@@ -9,7 +9,7 @@ struct CameraUniform {
 var<uniform> matrices: CameraUniform;
 
 struct InstanceInput {
-    @location(5) position: vec3<f32>,
+    @location(5) pos: vec3<f32>,
     @location(6) veloctiy: vec3<f32>,
 };
 
@@ -34,7 +34,7 @@ fn vs_main(
 ) -> VertexOutput {
     var out: VertexOutput;
     out.tex_coords = model.tex_coords;
-    out.clip_position = matrices.proj * matrices.view * vec4<f32>(model.position + instance.position, 1.0);
+    out.clip_position = matrices.proj * matrices.view * vec4<f32>(model.position + instance.pos, 1.0);
     return out;
 }
 

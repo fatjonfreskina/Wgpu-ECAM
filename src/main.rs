@@ -95,10 +95,10 @@ struct Net {
     sphere_index_buffer: wgpu::Buffer,          // sphere
     particles: Vec<Particle>,
     particle_buffer: wgpu::Buffer,
-    compute_particles_bind_group: wgpu::BindGroup, // added!
+    compute_particles_bind_group: wgpu::BindGroup, // added
     compute_springs_bind_group: wgpu::BindGroup,
-    compute_data_buffer: wgpu::Buffer,          // added!
-    compute_data_bind_group: wgpu::BindGroup,   // added!
+    compute_data_buffer: wgpu::Buffer,          // added
+    compute_data_bind_group: wgpu::BindGroup,   // added
     indices: Vec<u16>,
     sphere_indices: Vec<u16>,                   // added for sphere
 }
@@ -373,7 +373,7 @@ impl Application for Net {
         Ok(())
     }
     
-    fn update(&mut self, context: &Context, delta_time: f32) {
+    fn update(&mut self, context: &Context, _delta_time: f32) {
         let compute_data = ComputeData {
             delta_time: 0.016,
             nb_instances: pow(NUM_INSTANCES_PER_ROW,2),

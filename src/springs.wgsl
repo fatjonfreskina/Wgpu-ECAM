@@ -44,6 +44,7 @@ fn main(@builtin(global_invocation_id) param: vec3<u32>) {
     /* 
         Structural Springs
     */
+    for (var i = 0u; i < 4u; i += 1u) {
         // We know that each particle has four structural links (some of which are invalid; see below)    for (var i = 0u; i < 4u; i += 1u) {
         // Get the index
         var index1 = structural[param.x * 4u + i][0]; // param.x*4 allows not to iterate through the whole list
